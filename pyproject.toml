@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "URLINT"
+version = "1.0.0"
+description = "Reconnaissance OSINT légère et défensive sur domaines générés depuis des mots-clés."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "URLINT maintainers" }]
+license = { text = "MIT" }
+keywords = ["osint", "dns", "http", "cli", "defensive-security"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Environment :: Console",
+    "Topic :: Internet :: Name Service (DNS)",
+    "Topic :: Security",
+]
+dependencies = ["httpx>=0.27,<1"]
+
+[project.scripts]
+URLINT = "urlint.cli:main"
+urlint = "urlint.cli:main"
+
+[tool.setuptools]
+packages = ["urlint"]
