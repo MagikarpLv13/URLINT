@@ -38,7 +38,7 @@ baguette-tradition.fr | web_site | https | 200  | nginx  | Baguette Tradition
 - Détection basique des redirects et du serveur HTTP.
 - Tableau final lisible en console, affiché une fois le scan terminé.
 - Barre de progression automatique avec temps écoulé pendant le scan.
-- Domaines cliquables dans les terminaux compatibles.
+- Domaines ou URLs cliquables dans les terminaux compatibles.
 - Export JSON et CSV.
 
 ## Installation
@@ -257,7 +257,7 @@ baguette-tradition.fr,web_site,True,203.0.113.10,,,,True,https,200,Baguette Trad
 - utilise `httpx.Client` avec pooling par worker ;
 - garde une concurrence bornée avec `--workers`.
 
-Les liens cliquables en console utilisent les hyperlinks ANSI OSC 8. Ils sont activés automatiquement quand `URLINT` détecte une sortie terminal compatible. Utilisez `--no-links` si votre terminal affiche les séquences ANSI au lieu de rendre les liens.
+Les liens cliquables en console sont activés automatiquement quand `URLINT` détecte une sortie terminal. Sur les terminaux compatibles, `URLINT` utilise les hyperlinks ANSI OSC 8 pour garder la colonne `Domain` propre. Sur WSL ou les terminaux moins prévisibles, il affiche une URL visible comme `https://example.com`, plus souvent reconnue automatiquement par le terminal. Utilisez `--no-links` pour revenir à un affichage texte simple.
 
 ## Usage Responsable
 

@@ -17,7 +17,7 @@ import unicodedata
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import asdict, dataclass, field
 from html.parser import HTMLParser
-from typing import Iterable
+from typing import Iterable, Literal
 
 import httpx
 
@@ -55,6 +55,7 @@ DEFAULT_STOPWORDS = {
     "sur",
     "the",
 }
+ConsoleLinkMode = Literal["none", "osc8", "plain"]
 
 
 @dataclass(slots=True)
@@ -526,10 +527,29 @@ def should_show_progress(args: argparse.Namespace) -> bool:
     return not args.json and sys.stderr.isatty()
 
 
-def should_show_links(args: argparse.Namespace) -> bool:
-    if args.no_links:
+def is_wsl() -> bool:
+    return bool(os.environ.get("WSL_DISTRO_NAME") or os.environ.get("WSL_INTEROP"))
+
+
+def supports_osc8_links() -> bool:
+    if is_wsl():
         return False
-    return not args.json and sys.stdout.isatty()
+    if os.environ.get("WT_SESSION"):
+        return True
+    term = os.environ.get("TERM", "").lower()
+    term_program = os.environ.get("TERM_PROGRAM", "").lower()
+    known_programs = {"iterm.app", "wezterm", "vscode", "apple_terminal", "rio", "ghostty"}
+    if term_program in known_programs:
+        return True
+    return "kitty" in term
+
+
+def console_link_mode(args: argparse.Namespace) -> ConsoleLinkMode:
+    if args.no_links:
+        return "none"
+    if args.json or not sys.stdout.isatty():
+        return "none"
+    return "osc8" if supports_osc8_links() else "plain"
 
 
 def format_elapsed(seconds: float) -> str:
@@ -588,7 +608,7 @@ def result_console_url(result: DomainResult) -> str | None:
     if result.classification == "unreachable":
         return None
     protocol = result.protocol or "https"
-    return f"{protocol}://{result.domain}/"
+    return f"{protocol}://{result.domain}"
 
 
 def terminal_hyperlink(label: str, url: str | None) -> str:
@@ -600,10 +620,17 @@ def terminal_hyperlink(label: str, url: str | None) -> str:
     return f"\033]8;;{clean_url}\033\\{clean_label}\033]8;;\033\\"
 
 
-def console_row(result: DomainResult, verbose: bool) -> dict[str, str]:
+def console_domain_label(result: DomainResult, link_mode: ConsoleLinkMode) -> str:
+    url = result_console_url(result)
+    if link_mode == "plain" and url:
+        return url
+    return truncate_console(result.domain, MAX_TABLE_DOMAIN_CHARS)
+
+
+def console_row(result: DomainResult, verbose: bool, link_mode: ConsoleLinkMode) -> dict[str, str]:
     code = result.http_status if result.http_status is not None else "-"
     row = {
-        "domain": truncate_console(result.domain, MAX_TABLE_DOMAIN_CHARS),
+        "domain": console_domain_label(result, link_mode),
         "_domain_url": result_console_url(result) or "",
         "type": result.classification,
         "proto": result.protocol or "-",
@@ -618,7 +645,7 @@ def console_row(result: DomainResult, verbose: bool) -> dict[str, str]:
     return row
 
 
-def print_table(rows: list[dict[str, str]], headers: list[tuple[str, str]], hyperlinks: bool) -> None:
+def print_table(rows: list[dict[str, str]], headers: list[tuple[str, str]], link_mode: ConsoleLinkMode) -> None:
     widths: dict[str, int] = {}
     for key, label in headers:
         widths[key] = max(len(label), *(len(row[key]) for row in rows))
@@ -631,33 +658,38 @@ def print_table(rows: list[dict[str, str]], headers: list[tuple[str, str]], hype
         cells = []
         for key, _label in headers:
             cell = row[key].ljust(widths[key])
-            if hyperlinks and key == "domain":
+            if link_mode == "osc8" and key == "domain":
                 cell = terminal_hyperlink(cell, row.get("_domain_url"))
             cells.append(cell)
         print(" | ".join(cells))
 
 
-def print_text_summary(results: list[DomainResult], hyperlinks: bool) -> None:
+def print_text_summary(results: list[DomainResult], link_mode: ConsoleLinkMode) -> None:
     found_count = sum(1 for r in results if r.classification != "unreachable")
 
     noun = "RESULT" if found_count == 1 else "RESULTS"
     if found_count == 1:
         first = next(r for r in results if r.classification != "unreachable")
-        domain = terminal_hyperlink(first.domain, result_console_url(first)) if hyperlinks else first.domain
+        if link_mode == "osc8":
+            domain = terminal_hyperlink(first.domain, result_console_url(first))
+        elif link_mode == "plain":
+            domain = result_console_url(first) or first.domain
+        else:
+            domain = first.domain
         print(f"1 RESULT FOUND: {domain}")
     else:
         print(f"{found_count} {noun} FOUND")
 
 
-def print_text_results(results: list[DomainResult], verbose: bool, hyperlinks: bool) -> None:
+def print_text_results(results: list[DomainResult], verbose: bool, link_mode: ConsoleLinkMode) -> None:
     visible = results if verbose else [r for r in results if r.classification != "unreachable"]
-    print_text_summary(results, hyperlinks)
+    print_text_summary(results, link_mode)
     if not visible:
         return
 
     print()
     headers = [
-        ("domain", "Domain"),
+        ("domain", "URL" if link_mode == "plain" else "Domain"),
         ("type", "Type"),
         ("proto", "Proto"),
         ("code", "Code"),
@@ -666,7 +698,7 @@ def print_text_results(results: list[DomainResult], verbose: bool, hyperlinks: b
     ]
     if verbose:
         headers.extend([("ip", "IP"), ("errors", "Errors")])
-    print_table([console_row(result, verbose) for result in visible], headers, hyperlinks)
+    print_table([console_row(result, verbose, link_mode) for result in visible], headers, link_mode)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -904,7 +936,7 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps([asdict(result) for result in results], ensure_ascii=False, indent=2))
     else:
         print()
-        print_text_results(results, args.verbose, should_show_links(args))
+        print_text_results(results, args.verbose, console_link_mode(args))
         if args.csv:
             print(f"\nCSV exporté: {os.path.abspath(args.csv)}")
 
