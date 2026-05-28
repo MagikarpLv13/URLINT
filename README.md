@@ -38,6 +38,7 @@ baguette-tradition.fr | web_site | https | 200  | nginx  | Baguette Tradition
 - Détection basique des redirects et du serveur HTTP.
 - Tableau final lisible en console, affiché une fois le scan terminé.
 - Barre de progression automatique avec temps écoulé pendant le scan.
+- Domaines cliquables dans les terminaux compatibles.
 - Export JSON et CSV.
 
 ## Installation
@@ -188,6 +189,7 @@ Ordre de priorité des sources :
 --dry-run               affiche les domaines générés sans requêtes réseau
 --progress              force la progression si le terminal n'est pas détecté
 --no-progress           désactive la barre de progression
+--no-links              désactive les liens cliquables en console
 --verbose               affiche les erreurs et domaines injoignables
 ```
 
@@ -254,6 +256,8 @@ baguette-tradition.fr,web_site,True,203.0.113.10,,,,True,https,200,Baguette Trad
 - limite le `GET` HTML à 64 KiB ;
 - utilise `httpx.Client` avec pooling par worker ;
 - garde une concurrence bornée avec `--workers`.
+
+Les liens cliquables en console utilisent les hyperlinks ANSI OSC 8. Ils sont activés automatiquement quand `URLINT` détecte une sortie terminal compatible. Utilisez `--no-links` si votre terminal affiche les séquences ANSI au lieu de rendre les liens.
 
 ## Usage Responsable
 

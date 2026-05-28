@@ -526,6 +526,12 @@ def should_show_progress(args: argparse.Namespace) -> bool:
     return not args.json and sys.stderr.isatty()
 
 
+def should_show_links(args: argparse.Namespace) -> bool:
+    if args.no_links:
+        return False
+    return not args.json and sys.stdout.isatty()
+
+
 def format_elapsed(seconds: float) -> str:
     seconds = max(0, int(seconds))
     minutes, secs = divmod(seconds, 60)
@@ -578,10 +584,27 @@ def truncate_console(value: object, max_chars: int) -> str:
     return text[: max_chars - 3].rstrip() + "..."
 
 
+def result_console_url(result: DomainResult) -> str | None:
+    if result.classification == "unreachable":
+        return None
+    protocol = result.protocol or "https"
+    return f"{protocol}://{result.domain}/"
+
+
+def terminal_hyperlink(label: str, url: str | None) -> str:
+    if not url:
+        return label
+    # OSC 8 hyperlinks are ignored by unsupported terminals and keep JSON/CSV untouched.
+    clean_url = url.replace("\033", "")
+    clean_label = label.replace("\033", "")
+    return f"\033]8;;{clean_url}\033\\{clean_label}\033]8;;\033\\"
+
+
 def console_row(result: DomainResult, verbose: bool) -> dict[str, str]:
     code = result.http_status if result.http_status is not None else "-"
     row = {
         "domain": truncate_console(result.domain, MAX_TABLE_DOMAIN_CHARS),
+        "_domain_url": result_console_url(result) or "",
         "type": result.classification,
         "proto": result.protocol or "-",
         "code": str(code),
@@ -595,7 +618,7 @@ def console_row(result: DomainResult, verbose: bool) -> dict[str, str]:
     return row
 
 
-def print_table(rows: list[dict[str, str]], headers: list[tuple[str, str]]) -> None:
+def print_table(rows: list[dict[str, str]], headers: list[tuple[str, str]], hyperlinks: bool) -> None:
     widths: dict[str, int] = {}
     for key, label in headers:
         widths[key] = max(len(label), *(len(row[key]) for row in rows))
@@ -605,23 +628,30 @@ def print_table(rows: list[dict[str, str]], headers: list[tuple[str, str]]) -> N
     print(header_line)
     print(separator)
     for row in rows:
-        print(" | ".join(row[key].ljust(widths[key]) for key, _label in headers))
+        cells = []
+        for key, _label in headers:
+            cell = row[key].ljust(widths[key])
+            if hyperlinks and key == "domain":
+                cell = terminal_hyperlink(cell, row.get("_domain_url"))
+            cells.append(cell)
+        print(" | ".join(cells))
 
 
-def print_text_summary(results: list[DomainResult]) -> None:
+def print_text_summary(results: list[DomainResult], hyperlinks: bool) -> None:
     found_count = sum(1 for r in results if r.classification != "unreachable")
 
     noun = "RESULT" if found_count == 1 else "RESULTS"
     if found_count == 1:
-        first = next(r.domain for r in results if r.classification != "unreachable")
-        print(f"1 RESULT FOUND: {first}")
+        first = next(r for r in results if r.classification != "unreachable")
+        domain = terminal_hyperlink(first.domain, result_console_url(first)) if hyperlinks else first.domain
+        print(f"1 RESULT FOUND: {domain}")
     else:
         print(f"{found_count} {noun} FOUND")
 
 
-def print_text_results(results: list[DomainResult], verbose: bool) -> None:
+def print_text_results(results: list[DomainResult], verbose: bool, hyperlinks: bool) -> None:
     visible = results if verbose else [r for r in results if r.classification != "unreachable"]
-    print_text_summary(results)
+    print_text_summary(results, hyperlinks)
     if not visible:
         return
 
@@ -636,7 +666,7 @@ def print_text_results(results: list[DomainResult], verbose: bool) -> None:
     ]
     if verbose:
         headers.extend([("ip", "IP"), ("errors", "Errors")])
-    print_table([console_row(result, verbose) for result in visible], headers)
+    print_table([console_row(result, verbose) for result in visible], headers, hyperlinks)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -714,6 +744,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Forcer la progression si le terminal n'est pas détecté automatiquement.",
     )
     parser.add_argument("--no-progress", action="store_true", help="Désactiver la barre de progression.")
+    parser.add_argument("--no-links", action="store_true", help="Désactiver les liens cliquables en console.")
     parser.add_argument("--verbose", action="store_true", help="Afficher les domaines injoignables et les erreurs.")
     return parser
 
@@ -873,7 +904,7 @@ def run(args: argparse.Namespace) -> int:
         print(json.dumps([asdict(result) for result in results], ensure_ascii=False, indent=2))
     else:
         print()
-        print_text_results(results, args.verbose)
+        print_text_results(results, args.verbose, should_show_links(args))
         if args.csv:
             print(f"\nCSV exporté: {os.path.abspath(args.csv)}")
 
