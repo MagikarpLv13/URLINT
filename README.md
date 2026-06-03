@@ -46,10 +46,23 @@ baguette-tradition.fr | web_site | https | 200  | nginx  | Baguette Tradition
 ```bash
 git clone https://github.com/MagikarpLv13/URLINT.git
 cd URLINT
-python -m pip install -e .
+python -m venv .venv
 ```
 
-Ou installation classique :
+Activer l'environnement virtuel :
+
+```bash
+# Linux / macOS
+source .venv/bin/activate
+
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
+
+# Windows cmd.exe
+.venv\Scripts\activate.bat
+```
+
+Installer URLINT :
 
 ```bash
 python -m pip install .
