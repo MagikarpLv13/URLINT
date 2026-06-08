@@ -99,8 +99,8 @@ URLINT baguette tradition --tld-groups france_francophone,global_common --max-re
 Scanner prudemment avec la liste IANA :
 
 ```bash
-URLINT baguette artisanale --iana-tlds --dry-run
-URLINT baguette artisanale --iana-tlds --max-results 1500 --delay 1 --timeout 2 --no-ping
+URLINT baguette artisanale --all --dry-run
+URLINT baguette artisanale --all --max-results 1500 --delay 1 --timeout 2 --no-ping
 ```
 
 ## Génération Des Candidats
@@ -178,7 +178,7 @@ Ordre de priorité des sources :
 3. `--tlds`
 4. TLDs par défaut si aucune source n'est fournie
 
-`--iana-tlds` est un mode séparé : il charge tous les TLDs actuellement autorisés dans la racine IANA et ne se combine pas avec `--tld-groups`. C'est le mode le plus complet, mais aussi le plus gourmand en volume de candidats.
+`--all` est un mode séparé : il charge tous les TLDs actuellement autorisés dans la racine IANA et ne se combine pas avec `--tld-groups`. C'est le mode le plus complet, mais aussi le plus gourmand en volume de candidats. L'ancien flag `--iana-tlds` reste disponible comme alias.
 
 ## Options Principales
 
@@ -188,7 +188,8 @@ Ordre de priorité des sources :
 --tlds fr,com,org       TLDs à tester
 --tld-groups a,b        groupes TLD prédéfinis à utiliser
 --list-tld-groups       liste les groupes TLD disponibles
---iana-tlds             teste tous les TLDs actuellement autorisés par l'IANA
+--all                   teste tous les TLDs actuellement autorisés par l'IANA
+--iana-tlds             alias rétrocompatible de --all
 --tlds-file fichier     charge une liste locale de TLDs
 --timeout 3             timeout réseau par opération
 --delay 0               délai entre domaines
@@ -280,7 +281,7 @@ Recommandations :
 
 - utilisez `--dry-run` avant les scans larges ;
 - ajoutez `--max-results` pour borner volontairement le périmètre ;
-- utilisez `--delay 1` ou plus avec `--iana-tlds` ou des gros groupes ;
+- utilisez `--delay 1` ou plus avec `--all` ou des gros groupes ;
 - gardez `--workers` modéré ;
 - ne lancez pas de boucles massives autour de l'outil ;
 - n'utilisez pas `URLINT` pour contourner des protections, rate limits ou CAPTCHA.

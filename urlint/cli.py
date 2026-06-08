@@ -725,7 +725,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="Lister les groupes TLD prédéfinis disponibles puis quitter.",
     )
     parser.add_argument(
+        "--all",
         "--iana-tlds",
+        dest="iana_tlds",
         action="store_true",
         help="Tester tous les TLDs actuellement autorisés par l'IANA. Mode le plus complet et le plus gourmand.",
     )
@@ -795,9 +797,9 @@ def validate_args(args: argparse.Namespace, parser: argparse.ArgumentParser) -> 
     if args.max_results is not None and args.max_results <= 0:
         parser.error("--max-results doit être strictement positif.")
     if args.iana_tlds and args.tlds_file:
-        parser.error("--iana-tlds et --tlds-file sont mutuellement exclusifs.")
+        parser.error("--all et --tlds-file sont mutuellement exclusifs.")
     if args.iana_tlds and args.tld_groups:
-        parser.error("--iana-tlds et --tld-groups sont mutuellement exclusifs.")
+        parser.error("--all et --tld-groups sont mutuellement exclusifs.")
     if args.tld_groups:
         try:
             combine_groups(*parse_csv_values(args.tld_groups))
